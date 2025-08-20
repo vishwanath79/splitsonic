@@ -154,3 +154,7 @@ export DEMUCS_VERBOSE=1
 - **Demucs**: Facebook Research team for the source separation model
 - **PyTorch**: For the deep learning framework
 - **LibROSA**: For audio processing utilities
+
+## 📄 License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
