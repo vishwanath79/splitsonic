@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SplitSonic - AI Audio Source Separation</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .main-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        /* File Upload Area */
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #5a67d8;
+            background: #f0f2ff;
+            transform: translateY(-2px);
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.3em;
+            margin-bottom: 10px;
+            color: #4a5568;
+        }
+
+        .upload-subtext {
+            color: #718096;
+            font-size: 0.95em;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-info {
+            background: #e6fffa;
+            border: 2px solid #38b2ac;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .file-info.show {
+            display: block;
+        }
+
+        /* Processing Options */
+        .options-section {
+            margin: 40px 0;
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .option-card {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f7fafc;
+        }
+
+        .option-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+        }
+
+        .option-card.selected {
+            border-color: #667eea;
+            background: #f0f2ff;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.2);
+        }
+
+        .option-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .option-checkbox {
+            width: 20px;
+            height: 20px;
+        }
+
+        .option-title {
+            font-weight: 600;
+            font-size: 1.1em;
+            color: #2d3748;
+        }
+
+        .option-description {
+            color: #4a5568;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        /* Advanced Options */
+        .advanced-options {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f1f5f9;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .advanced-options.show {
+            display: block;
+        }
+
+        .slider-container {
+            margin: 15px 0;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #e2e8f0;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+            flex: 1;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .btn-primary:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        /* Progress Section */
+        .progress-section {
+            margin: 30px 0;
+            display: none;
+        }
+
+        .progress-section.show {
+            display: block;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .progress-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .progress-percentage {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-message {
+            color: #4a5568;
+            font-style: italic;
+        }
+
+        /* Results Section */
+        .results-section {
+            margin: 40px 0;
+            display: none;
+        }
+
+        .results-section.show {
+            display: block;
+        }
+
+        .results-grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        .result-card {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 25px;
+            transition: all 0.3s ease;
+        }
+
+        .result-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .result-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .result-description {
+            color: #4a5568;
+            margin-bottom: 20px;
+        }
+
+        .download-btn {
+            background: #38a169;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .download-btn:hover {
+            background: #2f855a;
+            transform: translateY(-1px);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .main-card {
+                padding: 25px;
+            }
+
+            .header h1 {
+                font-size: 2.2em;
+            }
+
+            .options-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .processing {
+            animation: pulse 2s infinite;
+        }
+
+        /* Success/Error States */
+        .success {
+            color: #38a169;
+        }
+
+        .error {
+            color: #e53e3e;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Footer styling */
+        .footer {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.9em;
+            margin-top: 20px;
+            padding: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-music"></i> SplitSonic</h1>
+            <p>AI-Powered Audio Source Separation & Guitar Removal</p>
+        </div>
+
+        <div class="main-card">
+            <!-- File Upload Section -->
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <div class="upload-text">Drop your audio file here or click to browse</div>
+                <div class="upload-subtext">Supports MP3, WAV, FLAC, M4A, and more (Max: 500MB)</div>
+                <input type="file" id="fileInput" class="file-input" accept=".mp3,.wav,.flac,.m4a,.aac,.ogg,.wma">
+            </div>
+
+            <!-- File Info Display -->
+            <div class="file-info" id="fileInfo">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-file-audio" style="color: #38b2ac; font-size: 1.5em;"></i>
+                    <div>
+                        <div style="font-weight: 600; color: #2d3748;" id="fileName"></div>
+                        <div style="color: #4a5568; font-size: 0.9em;" id="fileSize"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Processing Options -->
+            <div class="options-section">
+                <h2 class="section-title">
+                    <i class="fas fa-cogs"></i>
+                    Processing Options
+                </h2>
+                <div class="options-grid">
+                    <div class="option-card" data-option="separate_stems">
+                        <div class="option-header">
+                            <input type="checkbox" class="option-checkbox" id="stems">
+                            <div class="option-title">Separate All Stems</div>
+                        </div>
+                        <div class="option-description">
+                            Extract individual instrument tracks: drums, bass, vocals, and other instruments (guitars/keyboards)
+                        </div>
+                    </div>
+
+                    <div class="option-card" data-option="remove_guitar">
+                        <div class="option-header">
+                            <input type="checkbox" class="option-checkbox" id="guitar">
+                            <div class="option-title">Remove Guitar (Traditional)</div>
+                        </div>
+                        <div class="option-description">
+                            Remove the entire "other" stem containing guitars and keyboards. Fast but removes all non-vocal/drum/bass elements.
+                        </div>
+                    </div>
+
+                    <div class="option-card" data-option="selective_guitar">
+                        <div class="option-header">
+                            <input type="checkbox" class="option-checkbox" id="selective">
+                            <div class="option-title">Selective Guitar Removal</div>
+                        </div>
+                        <div class="option-description">
+                            Advanced spectral filtering to remove guitars while preserving keyboards and other harmonic instruments.
+                        </div>
+                    </div>
+
+                    <div class="option-card" data-option="remove_vocals">
+                        <div class="option-header">
+                            <input type="checkbox" class="option-checkbox" id="vocals">
+                            <div class="option-title">Remove Vocals (Instrumental)</div>
+                        </div>
+                        <div class="option-description">
+                            Create instrumental version by removing vocals while keeping all instruments including guitars.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced Options -->
+                <div class="advanced-options" id="advancedOptions">
+                    <h3 style="margin-bottom: 15px; color: #2d3748;">
+                        <i class="fas fa-sliders-h"></i> Advanced Settings
+                    </h3>
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>Guitar Filter Strength</span>
+                            <span id="strengthValue">0.9</span>
+                        </div>
+                        <input type="range" class="slider" id="filterStrength" min="0" max="1" step="0.1" value="0.9">
+                        <div style="font-size: 0.85em; color: #718096; margin-top: 5px;">
+                            Higher values remove more guitar frequencies but may affect keyboards
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button class="btn btn-primary" id="processBtn" disabled>
+                    <i class="fas fa-play"></i>
+                    Start Processing
+                </button>
+                <button class="btn btn-secondary" id="clearBtn">
+                    <i class="fas fa-trash"></i>
+                    Clear All
+                </button>
+            </div>
+
+            <!-- Progress Section -->
+            <div class="progress-section" id="progressSection">
+                <div class="progress-header">
+                    <div class="progress-title">Processing Audio...</div>
+                    <div class="progress-percentage" id="progressPercentage">0%</div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-message" id="progressMessage">Initializing...</div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="results-section" id="resultsSection">
+                <h2 class="section-title">
+                    <i class="fas fa-download"></i>
+                    Download Results
+                </h2>
+                <div class="results-grid" id="resultsGrid">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- App footer -->
+        <div class="footer">© 2025 SplitSonic. All rights reserved.</div>
+    </div>
+
+    <script>
+        class SplitSonicApp {
+            constructor() {
+                this.currentJobId = null;
+                this.uploadedFile = null;
+                this.progressInterval = null;
+                
+                this.initializeEventListeners();
+            }
+
+            initializeEventListeners() {
+                // File upload handling
+                const uploadArea = document.getElementById('uploadArea');
+                const fileInput = document.getElementById('fileInput');
+                
+                uploadArea.addEventListener('click', () => fileInput.click());
+                uploadArea.addEventListener('dragover', this.handleDragOver.bind(this));
+                uploadArea.addEventListener('dragleave', this.handleDragLeave.bind(this));
+                uploadArea.addEventListener('drop', this.handleDrop.bind(this));
+                fileInput.addEventListener('change', this.handleFileSelect.bind(this));
+
+                // Option cards
+                document.querySelectorAll('.option-card').forEach(card => {
+                    card.addEventListener('click', this.toggleOption.bind(this));
+                });
+
+                // Slider
+                const slider = document.getElementById('filterStrength');
+                slider.addEventListener('input', (e) => {
+                    document.getElementById('strengthValue').textContent = e.target.value;
+                });
+
+                // Buttons
+                document.getElementById('processBtn').addEventListener('click', this.startProcessing.bind(this));
+                document.getElementById('clearBtn').addEventListener('click', this.clearAll.bind(this));
+            }
+
+            handleDragOver(e) {
+                e.preventDefault();
+                document.getElementById('uploadArea').classList.add('dragover');
+            }
+
+            handleDragLeave(e) {
+                e.preventDefault();
+                document.getElementById('uploadArea').classList.remove('dragover');
+            }
+
+            handleDrop(e) {
+                e.preventDefault();
+                document.getElementById('uploadArea').classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    this.processFile(files[0]);
+                }
+            }
+
+            handleFileSelect(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    this.processFile(file);
+                }
+            }
+
+            processFile(file) {
+                // Validate file type
+                const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/m4a', 'audio/aac', 'audio/ogg'];
+                const fileExtension = file.name.split('.').pop().toLowerCase();
+                const allowedExtensions = ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'wma'];
+                
+                if (!allowedExtensions.includes(fileExtension)) {
+                    alert('Please select a supported audio file (MP3, WAV, FLAC, M4A, etc.)');
+                    return;
+                }
+
+                // Check file size (500MB limit)
+                if (file.size > 500 * 1024 * 1024) {
+                    alert('File size must be less than 500MB');
+                    return;
+                }
+
+                this.uploadedFile = file;
+                this.displayFileInfo(file);
+                this.uploadFile(file);
+            }
+
+            displayFileInfo(file) {
+                const fileInfo = document.getElementById('fileInfo');
+                const fileName = document.getElementById('fileName');
+                const fileSize = document.getElementById('fileSize');
+                
+                fileName.textContent = file.name;
+                fileSize.textContent = this.formatFileSize(file.size);
+                fileInfo.classList.add('show');
+                
+                // Enable process button
+                this.updateProcessButton();
+            }
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            async uploadFile(file) {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        this.currentJobId = result.job_id;
+                        console.log('File uploaded successfully:', result);
+                    } else {
+                        throw new Error(result.error || 'Upload failed');
+                    }
+                } catch (error) {
+                    alert('Upload failed: ' + error.message);
+                    this.clearAll();
+                }
+            }
+
+            toggleOption(e) {
+                const card = e.currentTarget;
+                const checkbox = card.querySelector('.option-checkbox');
+                
+                // Toggle checkbox state
+                checkbox.checked = !checkbox.checked;
+                
+                // Toggle card appearance
+                card.classList.toggle('selected', checkbox.checked);
+                
+                // Show/hide advanced options for selective guitar removal
+                const advancedOptions = document.getElementById('advancedOptions');
+                const selectiveChecked = document.getElementById('selective').checked;
+                advancedOptions.classList.toggle('show', selectiveChecked);
+                
+                this.updateProcessButton();
+            }
+
+            updateProcessButton() {
+                const processBtn = document.getElementById('processBtn');
+                const hasFile = this.uploadedFile !== null;
+                const hasSelectedOptions = document.querySelectorAll('.option-checkbox:checked').length > 0;
+                
+                processBtn.disabled = !(hasFile && hasSelectedOptions);
+            }
+
+            async startProcessing() {
+                if (!this.currentJobId) {
+                    alert('Please upload a file first');
+                    return;
+                }
+
+                // Get selected operations
+                const operations = [];
+                document.querySelectorAll('.option-checkbox:checked').forEach(checkbox => {
+                    const card = checkbox.closest('.option-card');
+                    operations.push(card.dataset.option);
+                });
+
+                if (operations.length === 0) {
+                    alert('Please select at least one processing option');
+                    return;
+                }
+
+                try {
+                    // Start processing
+                    const response = await fetch('/api/process', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            job_id: this.currentJobId,
+                            operations: operations,
+                            guitar_filter_strength: parseFloat(document.getElementById('filterStrength').value)
+                        })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        this.showProgressSection();
+                        this.startProgressTracking();
+                    } else {
+                        throw new Error(result.error || 'Processing failed to start');
+                    }
+                } catch (error) {
+                    alert('Failed to start processing: ' + error.message);
+                }
+            }
+
+            showProgressSection() {
+                document.getElementById('progressSection').classList.add('show');
+                document.getElementById('processBtn').disabled = true;
+                document.getElementById('processBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            }
+
+            startProgressTracking() {
+                this.progressInterval = setInterval(async () => {
+                    try {
+                        const response = await fetch(`/api/status/${this.currentJobId}`);
+                        const status = await response.json();
+                        
+                        if (response.ok) {
+                            this.updateProgress(status);
+                            
+                            if (status.status === 'completed') {
+                                this.showResults(status.results);
+                                this.stopProgressTracking();
+                            } else if (status.status === 'error') {
+                                alert('Processing failed: ' + status.message);
+                                this.stopProgressTracking();
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error checking status:', error);
+                    }
+                }, 1000);
+            }
+
+            updateProgress(status) {
+                const progressFill = document.getElementById('progressFill');
+                const progressPercentage = document.getElementById('progressPercentage');
+                const progressMessage = document.getElementById('progressMessage');
+                
+                progressFill.style.width = status.progress + '%';
+                progressPercentage.textContent = status.progress + '%';
+                progressMessage.textContent = status.message;
+            }
+
+            stopProgressTracking() {
+                if (this.progressInterval) {
+                    clearInterval(this.progressInterval);
+                    this.progressInterval = null;
+                }
+                
+                document.getElementById('processBtn').disabled = false;
+                document.getElementById('processBtn').innerHTML = '<i class="fas fa-play"></i> Start Processing';
+            }
+
+            showResults(results) {
+                const resultsSection = document.getElementById('resultsSection');
+                const resultsGrid = document.getElementById('resultsGrid');
+                
+                resultsGrid.innerHTML = '';
+                
+                Object.entries(results).forEach(([key, result]) => {
+                    if (result.error) {
+                        // Show error
+                        const errorCard = this.createErrorCard(key, result);
+                        resultsGrid.appendChild(errorCard);
+                    } else if (result.files) {
+                        // Multiple files (stems)
+                        const stemCard = this.createStemCard(result);
+                        resultsGrid.appendChild(stemCard);
+                    } else if (result.file) {
+                        // Single file
+                        const fileCard = this.createFileCard(result);
+                        resultsGrid.appendChild(fileCard);
+                    }
+                });
+                
+                resultsSection.classList.add('show');
+            }
+
+            createStemCard(result) {
+                const card = document.createElement('div');
+                card.className = 'result-card';
+                
+                const buttons = Object.entries(result.files).map(([stem, url]) => 
+                    `<button class="download-btn" onclick="window.open('${url}', '_blank')">
+                        <i class="fas fa-download"></i> ${stem.charAt(0).toUpperCase() + stem.slice(1)}
+                    </button>`
+                ).join('');
+                
+                card.innerHTML = `
+                    <div class="result-title">Individual Stems</div>
+                    <div class="result-description">${result.description}</div>
+                    ${buttons}
+                `;
+                
+                return card;
+            }
+
+            createFileCard(result) {
+                const card = document.createElement('div');
+                card.className = 'result-card';
+                
+                card.innerHTML = `
+                    <div class="result-title">${this.getResultTitle(result.description)}</div>
+                    <div class="result-description">${result.description}</div>
+                    <button class="download-btn" onclick="window.open('${result.file}', '_blank')">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                `;
+                
+                return card;
+            }
+
+            createErrorCard(operation, result) {
+                const card = document.createElement('div');
+                card.className = 'result-card';
+                card.style.borderColor = '#e53e3e';
+                card.style.background = '#fed7d7';
+                
+                card.innerHTML = `
+                    <div class="result-title error">Processing Error</div>
+                    <div class="result-description">${result.description}</div>
+                    <div style="color: #e53e3e; font-size: 0.9em; margin-top: 10px;">
+                        Error: ${result.error}
+                    </div>
+                `;
+                
+                return card;
+            }
+
+            getResultTitle(description) {
+                if (description.includes('guitar removed')) return 'No Guitar';
+                if (description.includes('instrumental')) return 'Instrumental';
+                if (description.includes('selective')) return 'Selective Guitar Removal';
+                return 'Processed Audio';
+            }
+
+            clearAll() {
+                // Reset file upload
+                this.uploadedFile = null;
+                this.currentJobId = null;
+                document.getElementById('fileInput').value = '';
+                document.getElementById('fileInfo').classList.remove('show');
+                
+                // Reset options
+                document.querySelectorAll('.option-checkbox').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                document.querySelectorAll('.option-card').forEach(card => {
+                    card.classList.remove('selected');
+                });
+                
+                // Hide sections
+                document.getElementById('advancedOptions').classList.remove('show');
+                document.getElementById('progressSection').classList.remove('show');
+                document.getElementById('resultsSection').classList.remove('show');
+                
+                // Reset progress
+                document.getElementById('progressFill').style.width = '0%';
+                document.getElementById('progressPercentage').textContent = '0%';
+                document.getElementById('progressMessage').textContent = 'Initializing...';
+                
+                // Stop progress tracking
+                this.stopProgressTracking();
+                
+                // Update button state
+                this.updateProcessButton();
+            }
+        }
+
+        // Initialize the app when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new SplitSonicApp();
+        });
+    </script>
+</body>
+</html> 

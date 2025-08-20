@@ -1,0 +1,13 @@
+# Flask Web Interface Requirements for SplitSonic
+# Install these in addition to the main requirements.txt
+
+# Web framework and utilities
+flask>=2.3.0,<3.0.0              # Web framework for the API and UI
+werkzeug>=2.3.0,<3.0.0           # WSGI utilities for Flask
+
+# Optional but recommended for production
+gunicorn>=21.0.0                 # Production WSGI server (Linux/macOS)
+waitress>=2.1.0                  # Production WSGI server (Windows-compatible)
+
+# Development/Debug (optional)
+flask-cors>=4.0.0                # For CORS support if needed 

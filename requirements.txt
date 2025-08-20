@@ -1,0 +1,22 @@
+# Requirements for SplitSonic (modelsplitter.py)
+# Audio source separation and guitar removal tool
+
+# Core PyTorch for deep learning models
+torch>=2.0.0,<3.0.0
+torchaudio>=2.0.0,<3.0.0
+
+# Demucs for audio source separation - Main dependency
+demucs>=4.0.0,<5.0.0
+
+# Audio processing and manipulation libraries
+librosa>=0.10.0,<1.0.0       # Advanced audio analysis and processing
+soundfile>=0.12.0,<1.0.0     # Audio file I/O support
+scipy>=1.10.0,<2.0.0         # Scientific computing (signal processing)
+
+# Core numerical computing
+numpy>=1.24.0,<2.0.0         # Fundamental array operations
+
+# Audio format support and conversion
+ffmpeg-python>=0.2.0         # FFmpeg integration for various audio formats
+
+# Note: optional dev tools (e.g., matplotlib, jupyter) intentionally omitted to keep the environment lean
