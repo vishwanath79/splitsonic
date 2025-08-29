@@ -376,11 +376,8 @@ def remove_guitar_keep_keyboards(audio_path, output_path=None, model_name="htdem
             raise ValueError(f"Unexpected sources shape: {sources.shape}")
         
         # Extract the "other" stem containing guitars and keyboards
-        other_stem = sources[:, other_idx].cpu().squeeze(0).numpy()  # Now [channels, time]
-        
-        # Save this stem temporarily for analysis
-        other_stem_path = os.path.join(temp_dir, f"{basename}_other_stem.wav")
-        torchaudio.save(other_stem_path, torch.tensor(other_stem), sample_rate)
+        # Shape becomes [channels, time]
+        other_stem = sources[:, other_idx].cpu().squeeze(0).numpy()
         
         # Extract the "drums", "bass", and "vocals" stems
         drums_bass_vocals = None
@@ -398,105 +395,88 @@ def remove_guitar_keep_keyboards(audio_path, output_path=None, model_name="htdem
         else:
             drums_bass_vocals = np.zeros_like(other_stem)
         
-        # Process the "other" stem to extract keyboard and remove guitar
-        # Since guitars and keyboards can occupy similar frequency ranges,
-        # we'll use advanced spectral processing techniques
-        
-        # Now process the "other" stem using spectral processing 
-        # to attenuate guitar frequencies while preserving keyboards
+        # Process the "other" stem with HPSS to preserve sustained keyboard tones
+        # and attenuate percussive/transient guitar content. We then apply
+        # targeted multiband attenuation only to the percussive component
+        # in classic guitar bands, leaving the harmonic (keyboard) component intact.
         processed_other = []
-        
-        # STFT parameters - larger window size for better frequency resolution
-        n_fft = 4096  # Larger FFT size for better frequency resolution
-        hop_length = 1024  # Overlap factor for better reconstruction
-        win_length = 4096  # Window size
-        
+
+        # STFT parameters tuned for separation fidelity and speed
+        n_fft = 2048
+        hop_length = 512
+        win_length = 2048
+
+        # Percussive gain after attenuation (less percussive content at higher strengths)
+        percussive_gain = 1.0 - (0.7 * guitar_filter_strength)
+
         for channel in range(other_stem.shape[0]):
-            # Load the audio channel
+            # Current channel waveform
             y = other_stem[channel]
-            
-            # Compute the Short-Time Fourier Transform (STFT) with larger window
-            D = librosa.stft(y, n_fft=n_fft, hop_length=hop_length, win_length=win_length)
-            
-            # Get magnitude and phase
-            magnitude, phase = librosa.magphase(D)
-            
-            # Guitar typically has significant energy in specific frequency ranges
-            # Create a multi-band filter to target different guitar characteristics
+
+            # 1) Harmonic-Percussive Source Separation in time-domain
+            #    Keyboards are predominantly harmonic; guitar strums have stronger percussive onsets
+            y_harm, y_perc = librosa.effects.hpss(y)
+
+            # 2) Attenuate percussive energy in guitar-heavy bands only
+            D_perc = librosa.stft(y_perc, n_fft=n_fft, hop_length=hop_length, win_length=win_length)
+            mag_perc, phase_perc = librosa.magphase(D_perc)
+
             freqs = librosa.fft_frequencies(sr=sample_rate, n_fft=n_fft)
-            guitar_mask = np.ones_like(magnitude)
-            
-            # Define multiple frequency bands to target different aspects of guitar sound
-            # Low-mids (rhythm guitar)
-            guitar_low_mids = (300, 800, 600, 0.95)  # (start_freq, end_freq, center_freq, attenuation)
-            # Mids (guitar body)
-            guitar_mids = (800, 2500, 1400, 0.95)    # Where most guitar energy is concentrated
-            # Upper-mids (guitar presence/attack)
-            guitar_hi_mids = (2500, 5000, 3500, 0.85)
-            # High frequencies (pick/string noise)
-            guitar_highs = (5000, 8000, 6500, 0.7)
-            
-            # List of frequency bands to process
-            guitar_bands = [guitar_low_mids, guitar_mids, guitar_hi_mids, guitar_highs]
-            
-            # Process each frequency band
-            for start_freq, end_freq, center_freq, band_strength in guitar_bands:
-                # Calculate bin indices for this band
+            mask_perc = np.ones_like(mag_perc)
+
+            # Frequency bands characteristic of guitar presence/attack/body
+            bands = [
+                (300, 800, 600, 0.9),    # low-mids (rhythm body)
+                (800, 2500, 1400, 0.95), # mids (guitar body)
+                (2500, 5000, 3500, 0.85),# upper-mids (presence/attack)
+                (5000, 8000, 6500, 0.75) # highs (pick/string noise)
+            ]
+
+            for start_freq, end_freq, center_freq, band_strength in bands:
                 idx_start = np.argmin(np.abs(freqs - start_freq))
                 idx_end = np.argmin(np.abs(freqs - end_freq))
                 idx_center = np.argmin(np.abs(freqs - center_freq))
-                
-                # Create a mask for this frequency band
-                # Use triangle shape with maximum attenuation at the center frequency
+
                 left_slope = np.arange(idx_start, idx_center) - idx_start
-                if (idx_center - idx_start) > 0:  # Prevent division by zero
+                if (idx_center - idx_start) > 0:
                     left_slope = left_slope / (idx_center - idx_start)
-                
+
                 right_slope = np.arange(idx_center, idx_end) - idx_center
-                if (idx_end - idx_center) > 0:  # Prevent division by zero
+                if (idx_end - idx_center) > 0:
                     right_slope = 1.0 - (right_slope / (idx_end - idx_center))
-                
-                # Combine slopes into a triangular mask
-                band_mask = np.ones(idx_end - idx_start)
-                band_mask[:len(left_slope)] = 1.0 - (band_strength * left_slope * guitar_filter_strength)
-                band_mask[len(left_slope):] = 1.0 - (band_strength * right_slope * guitar_filter_strength)
-                
-                # Apply this band's mask to the full mask
-                guitar_mask[idx_start:idx_end, :] = band_mask[:, np.newaxis]
-            
-            # Apply the mask to the magnitude
-            filtered_magnitude = magnitude * guitar_mask
-            
-            # Additional transient suppression to reduce guitar pick attacks
-            # This helps remove more of the guitar's percussive elements
-            if guitar_filter_strength > 0.7:
-                # Calculate the temporal envelope
-                temporal_envelope = np.mean(np.abs(filtered_magnitude), axis=0)
-                # Smooth the envelope
-                window_size = 5
-                smoothed_envelope = np.convolve(temporal_envelope, 
-                                              np.ones(window_size)/window_size, 
-                                              mode='same')
-                # Detect transients (sharp increases in energy)
-                transients = temporal_envelope > (1.5 * smoothed_envelope)
-                # Attenuate frames with transients
-                transient_mask = np.ones_like(filtered_magnitude)
-                transient_mask[:, transients] = 0.7  # Reduce energy at transient locations
-                filtered_magnitude = filtered_magnitude * transient_mask
-            
-            # Reconstruct the audio
-            filtered_D = filtered_magnitude * phase
-            processed_audio = librosa.istft(filtered_D, hop_length=hop_length, 
-                                          win_length=win_length, length=len(y))
-            
-            processed_other.append(processed_audio)
-        
-        # Convert back to appropriate shape
+
+                band_mask = np.ones(max(0, idx_end - idx_start))
+                if band_mask.size > 0:
+                    band_mask[:len(left_slope)] = 1.0 - (band_strength * left_slope * guitar_filter_strength)
+                    band_mask[len(left_slope):] = 1.0 - (band_strength * right_slope * guitar_filter_strength)
+                    mask_perc[idx_start:idx_end, :] = band_mask[:, np.newaxis]
+
+            # Optional transient reinforcement reduction for very high strengths
+            if guitar_filter_strength > 0.8:
+                temporal_envelope = np.mean(mag_perc, axis=0)
+                kernel = np.ones(7) / 7.0
+                smoothed = np.convolve(temporal_envelope, kernel, mode='same')
+                transients = temporal_envelope > (1.6 * smoothed)
+                transient_mask = np.ones_like(mag_perc)
+                transient_mask[:, transients] = 0.6
+                mask_perc *= transient_mask
+
+            mag_perc_filtered = mag_perc * mask_perc
+            D_perc_filtered = mag_perc_filtered * phase_perc
+            y_perc_filtered = librosa.istft(D_perc_filtered, hop_length=hop_length, win_length=win_length, length=len(y))
+
+            # 3) Recombine: keep harmonic intact, add attenuated percussive residue
+            processed = y_harm + (percussive_gain * y_perc_filtered)
+
+            # Safety: gentle normalization to avoid clipping
+            peak = np.max(np.abs(processed)) + 1e-8
+            if peak > 1.0:
+                processed = processed / peak
+
+            processed_other.append(processed)
+
+        # Convert to [channels, time]
         processed_other = np.array(processed_other)
-        
-        # Apply a small gain reduction to the processed "other" stem
-        # This helps to further reduce any remaining guitar elements
-        processed_other = processed_other * 0.85
         
         # Mix with the drums, bass, and vocals
         final_mix = drums_bass_vocals + processed_other
