@@ -295,7 +295,7 @@ def remove_guitar(audio_path, output_path=None, model_name="htdemucs"):
             print(f"Initial waveform shape: {waveform_tmp.shape}")
         raise
 
-def remove_guitar_keep_keyboards(audio_path, output_path=None, model_name="htdemucs", guitar_filter_strength=0.9):
+def remove_guitar_keep_keyboards(audio_path, output_path=None, model_name="htdemucs_6s", guitar_filter_strength=0.9):
     """
     Remove guitar while preserving keyboards from an audio file.
     
@@ -363,6 +363,38 @@ def remove_guitar_keep_keyboards(audio_path, output_path=None, model_name="htdem
         # Get source names
         source_names = model.sources
         print(f"Source names: {source_names}")
+
+        # Fast-path using Demucs 6-stem model if available:
+        # When the model provides a dedicated 'guitar' stem, we can simply
+        # mix all stems except 'guitar', which naturally preserves 'piano'.
+        if "guitar" in source_names:
+            guitar_idx = source_names.index("guitar")
+
+            if len(sources.shape) != 4:
+                raise ValueError(f"Unexpected sources shape: {sources.shape}")
+
+            mix = None
+            for i, name in enumerate(source_names):
+                if i == guitar_idx:
+                    continue  # skip guitar stem entirely
+                source = sources[:, i]
+                if mix is None:
+                    mix = source.clone()
+                else:
+                    mix += source
+
+            if mix is not None:
+                mix = mix.cpu()
+                if mix.shape[0] == 1:
+                    mix = mix.squeeze(0)
+                torchaudio.save(output_path, mix, sample_rate)
+                print(f"Successfully saved selective guitar removal (6-stem) to {output_path}")
+
+                # Clean up temporary directory
+                import shutil
+                if os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir)
+                return output_path
         
         # Find the index of "other" stem (which typically contains both guitar and keyboards)
         other_idx = source_names.index("other") if "other" in source_names else None
