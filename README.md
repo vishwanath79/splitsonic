@@ -1,6 +1,6 @@
 # SplitSonic - Audio Source Separation & Guitar Removal Tool
 
-A comprehensive Python application for audio source separation and selective instrument removal using state-of-the-art deep learning models.
+A comprehensive Python application for audio source separation and selective instrument removal using state-of-the-art deep learning models. I use to this split stems , mostly removing guitar tracks that I can practice over to hone technique. 
 
 ## 🏗️ Application Architecture
 
@@ -33,6 +33,8 @@ graph TD
 ```
 
 ### Technology Stack
+
+Huge thanks for all the opensource librarirs that make this possible.
 
 - **Deep Learning Framework**: PyTorch + TorchAudio
 - **AI Model**: Demucs (Hybrid Transformers for Music Source Separation)
