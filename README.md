@@ -8,10 +8,14 @@ A comprehensive Python application for audio source separation and selective ins
 
 ```
 splitsonic/
-├── modelsplitter.py    # Main module with advanced separation algorithms
-├── guitar.py          # Simple CLI wrapper for basic operations
-├── requirements.txt   # Python dependencies
-└── README.md         # This documentation
+├── modelsplitter.py       # Main module with advanced separation algorithms
+├── app.py                 # Flask web interface and REST API
+├── run_web_interface.py   # Launcher for the web interface
+├── requirements.txt       # Core Python dependencies
+├── app_requirements.txt   # Web interface dependencies
+├── templates/             # Web frontend templates
+├── README.md              # This documentation
+└── WEB_INTERFACE.md       # Web interface documentation
 ```
 
 ### Architecture Overview
@@ -97,9 +101,6 @@ remove_guitar_keep_keyboards("song.mp3", "song_selective.wav", guitar_filter_str
 ```bash
 # Process single file with all operations
 python modelsplitter.py input_song.mp3
-
-# Simple separation using audio-separator wrapper
-python guitar.py
 ```
 
 ## 📋 Installation

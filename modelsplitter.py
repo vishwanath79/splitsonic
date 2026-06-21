@@ -1,13 +1,18 @@
 import os
-import torch
+import shutil
 import sys
-from demucs.pretrained import get_model
-from demucs.apply import apply_model
+import traceback
+
+# Workaround for OpenMP duplicate library conflict on macOS (must be set before importing torch/numpy)
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+import torch
 import torchaudio
-import numpy as np
+from demucs.apply import apply_model
+from demucs.pretrained import get_model
 import librosa
+import numpy as np
 import soundfile as sf
-from scipy import signal
 
 """
 Guitar Stem Separator and Remover
@@ -173,10 +178,6 @@ def remove_guitar(audio_path, output_path=None, model_name="htdemucs"):
         output_dir = os.path.dirname(audio_path) if os.path.dirname(audio_path) else "."
         output_path = os.path.join(output_dir, f"{basename}_no_guitar.wav")
     
-    # Create temporary directory for stems
-    temp_dir = os.path.join(os.path.dirname(output_path), "temp_stems")
-    os.makedirs(temp_dir, exist_ok=True)
-    
     try:
         print(f"Processing file for guitar removal: {audio_path}")
         print(f"Output will be saved to: {output_path}")
@@ -278,11 +279,6 @@ def remove_guitar(audio_path, output_path=None, model_name="htdemucs"):
             torchaudio.save(output_path, mix, sample_rate)
             print(f"Successfully saved no-guitar version to {output_path}")
             
-        # Clean up temporary directory
-        import shutil
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
-            
         return output_path
     except Exception as e:
         print(f"Error during guitar removal: {str(e)}")
@@ -321,10 +317,6 @@ def remove_guitar_keep_keyboards(audio_path, output_path=None, model_name="htdem
     if output_path is None:
         output_dir = os.path.dirname(audio_path) if os.path.dirname(audio_path) else "."
         output_path = os.path.join(output_dir, f"{basename}_no_guitar_keep_keys.wav")
-    
-    # Create temporary directory for stems
-    temp_dir = os.path.join(os.path.dirname(output_path), "temp_stems")
-    os.makedirs(temp_dir, exist_ok=True)
     
     try:
         print(f"Processing file for selective guitar removal: {audio_path}")
@@ -390,12 +382,8 @@ def remove_guitar_keep_keyboards(audio_path, output_path=None, model_name="htdem
                 torchaudio.save(output_path, mix, sample_rate)
                 print(f"Successfully saved selective guitar removal (6-stem) to {output_path}")
 
-                # Clean up temporary directory
-                import shutil
-                if os.path.exists(temp_dir):
-                    shutil.rmtree(temp_dir)
                 return output_path
-        
+
         # Find the index of "other" stem (which typically contains both guitar and keyboards)
         other_idx = source_names.index("other") if "other" in source_names else None
         
@@ -517,16 +505,10 @@ def remove_guitar_keep_keyboards(audio_path, output_path=None, model_name="htdem
         sf.write(output_path, final_mix.T, sample_rate)
         print(f"Successfully saved guitar-reduced version to {output_path}")
         
-        # Clean up temporary directory
-        import shutil
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
-            
         return output_path
     except Exception as e:
         print(f"Error during selective guitar removal: {str(e)}")
         # Print debug information
-        import traceback
         traceback.print_exc()
         raise
 
@@ -554,10 +536,6 @@ def remove_vocals(audio_path, output_path=None, model_name="htdemucs"):
     if output_path is None:
         output_dir = os.path.dirname(audio_path) if os.path.dirname(audio_path) else "."
         output_path = os.path.join(output_dir, f"{basename}_no_vocals.wav")
-    
-    # Create temporary directory for stems
-    temp_dir = os.path.join(os.path.dirname(output_path), "temp_stems")
-    os.makedirs(temp_dir, exist_ok=True)
     
     try:
         print(f"Processing file for vocal removal: {audio_path}")
@@ -659,11 +637,6 @@ def remove_vocals(audio_path, output_path=None, model_name="htdemucs"):
             print(f"Final mix shape: {mix.shape}")
             torchaudio.save(output_path, mix, sample_rate)
             print(f"Successfully saved no-vocals version to {output_path}")
-            
-        # Clean up temporary directory
-        import shutil
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
             
         return output_path
     except Exception as e:
